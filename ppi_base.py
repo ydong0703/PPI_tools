@@ -1,10 +1,9 @@
 """
 ppi_base.py
 
-功能说明
+
 ------------
-实现 PPI (Prediction-Powered Inference) 估计器（均值估计场景，单预测器版本）。
-对应论文公式（以总体均值 θ* = E[Y] 为目标）：
+
 
   Naive:
     θ̂_nv = (1/n) * Σ_{i=1}^n Y_i
@@ -31,7 +30,7 @@ def ppi_estimator(
     y_labeled: np.ndarray,
     yhat_labeled: np.ndarray,
     yhat_unlabeled: np.ndarray,
-) -> float:
+) -> dict:   # === 修改：返回 dict 而非 float ===
     """
 
     ----------
@@ -67,14 +66,27 @@ def ppi_estimator(
     if len(yhat_unlabeled) == 0:
         raise ValueError("yhat_unlabeled 不能为空（需要 U 的预测）")
 
-
-    mean_y_L   = float(np.mean(y_labeled))         # mean(Y_L)
+    # ---- 基础统计量 ----
+    mean_y_L    = float(np.mean(y_labeled))        # mean(Y_L)
     mean_yhat_L = float(np.mean(yhat_labeled))     # mean(Ŷ_L)
     mean_yhat_U = float(np.mean(yhat_unlabeled))   # mean(Ŷ_U)
 
-    # ---- PPI 公式：θ̂_ppi = mean(Y_L) + mean(Ŷ_U) - mean(Ŷ_L) ----
+    #ppi
     theta_ppi = mean_y_L + (mean_yhat_U - mean_yhat_L)
-    return theta_ppi
+
+   
+    #  Var(θ̂_ppi) = Var(Ŷ)/(N-n) + Var(Y - Ŷ)/n
+    yhat_all = np.concatenate([yhat_labeled, yhat_unlabeled], axis=0)
+    N = len(yhat_all)
+    var_yhat_all = np.var(yhat_all, ddof=0)       # 总体方差 Var(Ŷ)
+    resid_L = y_labeled - yhat_labeled
+    var_resid_L = np.var(resid_L, ddof=0)         # Var(Y - Ŷ)
+    var_theta = var_yhat_all / (N - n) + var_resid_L / n
+    sd_ppi = np.sqrt(var_theta)
+
+
+    # 返回与 naive 一致的字典形式
+    return {"est": float(theta_ppi), "sd": float(sd_ppi)}
 
 
 

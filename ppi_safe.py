@@ -32,8 +32,8 @@ def ppi_pp_estimator(
     yhat_labeled: np.ndarray,
     yhat_unlabeled: np.ndarray,
     eps: float = 1e-12,#只是为了防止除以0
-) -> float:
-
+    ddof: int = 0,     
+) -> dict:              
 
     # 数制转换，copy from previous code.
     if not isinstance(y_labeled, np.ndarray):
@@ -58,22 +58,24 @@ def ppi_pp_estimator(
     mean_yhat_L  = float(np.mean(yhat_labeled))       # mean(Ŷ_L)
     mean_yhat_U  = float(np.mean(yhat_unlabeled))     # mean(Ŷ_U)
 
- 
     # Var_All(Ŷ)：用 L∪U 全部 Ŷ
-    #Usage Mark: np.concatenate((array1, array2, ...), axis=0)用于拼接
     yhat_all = np.concatenate([yhat_labeled, yhat_unlabeled], axis=0)
-    #Usage Mark: Σ差平方/（N - ddof）
-    #Question Mark: 我们用的是0还是1？
-    var_yhat_all = float(np.var(yhat_all, ddof=1)) if len(yhat_all) > 1 else 0.0
+    N = len(yhat_all)
 
-    # Cov_L(Ŷ, Y)：仅用 L
+    var_yhat_all = float(np.var(yhat_all, ddof=ddof)) if len(yhat_all) > 1 else 0.0
+
+    # Cov_L(Ŷ, Y)：
     if n > 1:
-        cov_yhat_y_L = float(np.cov(yhat_labeled, y_labeled, ddof=1)[0, 1])
+       
+        yL_center = y_labeled - y_labeled.mean()
+        YhatL_center = yhat_labeled - yhat_labeled.mean(axis=0)
+        cov_yhat_y_L = float((YhatL_center.T @ yL_center) / (n - ddof))
+
     else:
         cov_yhat_y_L = 0.0  # safety check 样本过小无法稳定估计，退化为 0
+  
 
     # 计算 ω̂_opt
-    N = len(yhat_all)
     if var_yhat_all <= eps:
         # ➗0检验
         omega_hat = 0.0
@@ -82,8 +84,21 @@ def ppi_pp_estimator(
 
     # ---- PPI++ 估计值 ----
     theta_safe = mean_y_L + omega_hat * (mean_yhat_U - mean_yhat_L)
-    return theta_safe
 
+    
+    #   Var{θ̂(ω)} = (1/n) Var(Y) + [N/(n(N-n))] Var(Ŷ) * ω^2 - (2/n) Cov(Ŷ, Y) * ω
+    var_y_L = float(np.var(y_labeled, ddof=ddof)) if n > 1 else 0.0
+
+    var_theta = (
+        (var_y_L / n)
+        + (N / (n * (N - n))) * var_yhat_all * (omega_hat ** 2)
+        - (2.0 / n) * cov_yhat_y_L * omega_hat
+    )
+    # 数值稳健：可能因有限样本产生极小负数，截断到 0
+    sd_safe = float(np.sqrt(max(var_theta, 0.0)))
+   
+    return {"est": float(theta_safe), "sd": sd_safe, "omega": float(omega_hat)}
+   
 
 # 2) 仿真实验便捷接口
 
