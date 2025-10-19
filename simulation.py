@@ -137,7 +137,7 @@ def summarize_by_gamma(df_rep: pd.DataFrame, theta_star: float) -> pd.DataFrame:
         })
     out = pd.DataFrame(parts)
 
-    # 计算 ARE（相对 naive 的 RMSE）
+   
     def add_are(grp):
         rmse_naive = float(grp.loc[grp["method"] == "naive", "rmse"].values[0])
         grp = grp.copy()
@@ -154,7 +154,7 @@ def main():
     parser.add_argument("--J", type=int, default=1000, help="重复次数（Monte Carlo replications）")
     parser.add_argument("--label_ratio", type=float, default=0.3, help="labeled 比例（默认 0.3）")
     parser.add_argument("--theta", type=float, default=0.5, help="真均值 θ*")
-    parser.add_argument("--seed", type=int, default=1234567, help="随机种子")
+    parser.add_argument("--seed", type=int, default=42, help="随机种子")
     parser.add_argument("--ddof", type=int, default=0, choices=[0, 1], help="方差/协方差的 ddof（0=总体; 1=样本无偏）")
     parser.add_argument("--lambda_reg", type=float, default=0.0, help="SADA 中对 Var(Ŷ) 的岭正则 λ")
     parser.add_argument("--use_pinv", action="store_true", help="SADA 遇到病态协方差矩阵时使用伪逆")

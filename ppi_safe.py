@@ -62,11 +62,11 @@ def ppi_pp_estimator(
     yhat_all = np.concatenate([yhat_labeled, yhat_unlabeled], axis=0)
     N = len(yhat_all)
 
-    var_yhat_all = float(np.var(yhat_all, ddof=ddof)) if len(yhat_all) > 1 else 0.0
+    var_yhat_all = float(np.var(yhat_all, ddof=ddof)) + 1e-5 if len(yhat_all) > 1 else 0.0
 
     # Cov_L(Ŷ, Y)：
     if n > 1:
-       
+        # cov_yhat_y_L = float(np.cov(yhat_labeled, y_labeled, ddof=ddof)[0, 1])
         yL_center = y_labeled - y_labeled.mean()
         YhatL_center = yhat_labeled - yhat_labeled.mean(axis=0)
         cov_yhat_y_L = float((YhatL_center.T @ yL_center) / (n - ddof))
@@ -80,7 +80,7 @@ def ppi_pp_estimator(
         # ➗0检验
         omega_hat = 0.0
     else:
-        omega_hat = ((N - n) / N) * (cov_yhat_y_L / var_yhat_all)
+        omega_hat = ((N - n) / N) * (cov_yhat_y_L / var_yhat_all )
 
     # ---- PPI++ 估计值 ----
     theta_safe = mean_y_L + omega_hat * (mean_yhat_U - mean_yhat_L)
@@ -89,11 +89,16 @@ def ppi_pp_estimator(
     #   Var{θ̂(ω)} = (1/n) Var(Y) + [N/(n(N-n))] Var(Ŷ) * ω^2 - (2/n) Cov(Ŷ, Y) * ω
     var_y_L = float(np.var(y_labeled, ddof=ddof)) if n > 1 else 0.0
 
-    var_theta = (
-        (var_y_L / n)
-        + (N / (n * (N - n))) * var_yhat_all * (omega_hat ** 2)
-        - (2.0 / n) * cov_yhat_y_L * omega_hat
-    )
+    # var_theta = (
+    #     (var_y_L / n)
+    #     + (N / (n * (N - n))) * var_yhat_all * (omega_hat ** 2)
+    #     - (2.0 / n) * cov_yhat_y_L * omega_hat
+    # )
+
+    var_theta = (var_y_L / n) - ((1.0 / n - 1.0 / N) * (cov_yhat_y_L ** 2) / var_yhat_all)
+    # var_yhat_all_reg = var_yhat_all + 1e-12
+    # var_theta = (var_y_L / n) - (1.0/n - 1.0/N) * (cov_yhat_y_L**2) / var_yhat_all_reg
+
     # 数值稳健：可能因有限样本产生极小负数，截断到 0
     sd_safe = float(np.sqrt(max(var_theta, 0.0)))
    
